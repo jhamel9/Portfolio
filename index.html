@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Jhamel Warehouse</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2330363b'/%3E%3Ccircle cx='32' cy='32' r='15' fill='none' stroke='%2333ddff' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%2333ddff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="favicon.png">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%;margin:0;background:#0a0d12;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -176,35 +176,44 @@ window.PERF=PERF;
     const tx=document.createElement('div');tx.className='wt';
     tx.innerHTML='<div class="w1">Welcome to</div><div class="w2">Jhamel\'s Warehouse</div><div class="w3">Portfolio</div>';
     box.append(c,tx);document.body.appendChild(box);
-    const W=c.width=innerWidth,H=c.height=innerHeight,x=c.getContext('2d'),MX=Math.max(W,H),cx=W/2,cy=H/2;
+    // low-end: draw the cloud overlay at reduced resolution (CSS stretches it back to the full screen)
+    const Q=LOW?.6:1,W=c.width=Math.round(innerWidth*Q),H=c.height=Math.round(innerHeight*Q),x=c.getContext('2d'),MX=Math.max(W,H),cx=W/2,cy=H/2;
     // soft cloud puff sprites: grey-blue underside shading + white billows
+    // low-end: smaller sprite canvases, fewer puffs and fewer on-screen sprites (far less GPU fill cost)
+    const SZ=LOW?128:256,NB=LOW?10:20,NS=LOW?3:5,kSZ=SZ/256;
     const mkS=()=>{
-      const s=document.createElement('canvas');s.width=s.height=256;const g=s.getContext('2d');
+      const s=document.createElement('canvas');s.width=s.height=SZ;const g=s.getContext('2d');
       const blobs=[];
-      for(let i=0;i<20;i++)blobs.push([128+(Math.random()-.5)*130,128+(Math.random()-.5)*110,22+Math.random()*46,.35+Math.random()*.65]);
+      for(let i=0;i<NB;i++)blobs.push([SZ/2+(Math.random()-.5)*130*kSZ,SZ/2+(Math.random()-.5)*110*kSZ,(22+Math.random()*46)*kSZ,.35+Math.random()*.65]);
       // dense grey-blue shadowed cores for contrast
       blobs.forEach(([px,py,r,a])=>{
-        const gr=g.createRadialGradient(px+6,py+14,0,px+6,py+14,r*1.05);
+        const gr=g.createRadialGradient(px+6*kSZ,py+14*kSZ,0,px+6*kSZ,py+14*kSZ,r*1.05);
         gr.addColorStop(0,'rgba(120,136,158,'+(.55*a).toFixed(2)+')');gr.addColorStop(.7,'rgba(150,164,184,'+(.2*a).toFixed(2)+')');gr.addColorStop(1,'rgba(150,164,184,0)');
-        g.fillStyle=gr;g.fillRect(0,0,256,256);
+        g.fillStyle=gr;g.fillRect(0,0,SZ,SZ);
       });
       // bright sunlit tops with uneven opacity
       blobs.forEach(([px,py,r,a])=>{
-        const gr=g.createRadialGradient(px-4,py-8,0,px-4,py-8,r*.9);
+        const gr=g.createRadialGradient(px-4*kSZ,py-8*kSZ,0,px-4*kSZ,py-8*kSZ,r*.9);
         gr.addColorStop(0,'rgba(255,255,255,'+(.98*a).toFixed(2)+')');gr.addColorStop(.55,'rgba(255,255,255,'+(.5*a).toFixed(2)+')');gr.addColorStop(1,'rgba(255,255,255,0)');
-        g.fillStyle=gr;g.fillRect(0,0,256,256);
+        g.fillStyle=gr;g.fillRect(0,0,SZ,SZ);
       });
       return s;
     };
-    const SPR=[mkS(),mkS(),mkS(),mkS(),mkS()];
-    const N=innerWidth<700?36:72,P=[];
-    for(let i=0;i<N;i++)P.push({x:Math.random()*W,y:Math.random()*H,s:(.25+Math.random()*.7)*MX,sp:SPR[i%5],z:.4+Math.random()*1.5,al:.2+Math.random()*.8,pw:.8+Math.random()*1.2,rot:Math.random()*PI*2});
+    const SPR=[];for(let i=0;i<NS;i++)SPR.push(mkS());
+    const N=innerWidth<700?36:72;
+    const NP=LOW?Math.min(N,14):N,P=[];
+    for(let i=0;i<NP;i++)P.push({x:Math.random()*W,y:Math.random()*H,s:(LOW?.3+Math.random()*.45:.25+Math.random()*.7)*MX,sp:SPR[i%NS],z:.4+Math.random()*1.5,al:.2+Math.random()*.8,pw:.8+Math.random()*1.2,rot:Math.random()*PI*2});
     const ease=u=>{u=Math.max(0,Math.min(1,u));return u*u*(3-2*u)};
     const t0=performance.now();
     setTimeout(()=>tx.classList.add('in'),700);
     setTimeout(()=>{tx.classList.remove('in');tx.classList.add('out')},4300);
+    let _lastDraw=0;
     (function f(){
-      const t=(performance.now()-t0)/1000;
+      // low-end: draw the overlay at ~30fps instead of on every vsync frame
+      const _n=performance.now();
+      if(LOW&&_n-_lastDraw<32){requestAnimationFrame(f);return}
+      _lastDraw=_n;
+      const t=(_n-t0)/1000;
       if(t>8){box.remove();camRate=10;return}
       x.clearRect(0,0,W,H);
       // white sky layer that thins out as the camera drops through the clouds
@@ -5883,7 +5892,8 @@ const cctvDue=()=>{
   const cp=Math.cos(camState.pitch);cam.position.copy(camState.p);
   cam.lookAt(camState.p.x+Math.sin(camState.yaw)*cp,camState.p.y+Math.sin(camState.pitch),camState.p.z+Math.cos(camState.yaw)*cp);
   if(frameN%3===0){for(let i=0;i<dn;i++){dp[i*3+1]+=.012*Math.sin(t+i);dp[i*3]+=.009*Math.cos(t*.7+i)}dg.attributes.position.needsUpdate=true}
-  if(!LOW&&(frameN%shadowEvery===0||(k!==goal&&frameN%2===0)))R.shadowMap.needsUpdate=true;
+  // skip shadow-map re-renders while the intro overlay is up (the map is camera-independent and already up to date)
+  if(!LOW&&!introAnim&&(frameN%shadowEvery===0||(k!==goal&&frameN%2===0)))R.shadowMap.needsUpdate=true;
   if(window.sumoLbl)window.sumoLbl.forEach(L=>{const d=cam.position.distanceTo(L.s.position),o=Math.max(0,Math.min(1,(8-d)/3));L.m.opacity=o;L.s.visible=o>0;if(o>0){L.s.position.y=L.base+Math.sin(t*2)*.04;L.s.updateMatrix()}});
   frameN++;
   if(cctvRT&&cctvCam&&cctvDue()){const _sa=R.shadowMap.autoUpdate;R.shadowMap.autoUpdate=false;const _cs=window.cctvScr||[];_cs.forEach(o=>o.visible=false);R.setRenderTarget(cctvRT);R.render(S,cctvCam);R.setRenderTarget(null);_cs.forEach(o=>o.visible=true);R.shadowMap.autoUpdate=_sa;}
@@ -5902,5 +5912,7 @@ const cctvDue=()=>{
       }
     }else goodWin=0;
   }}
-  R.render(S,cam);PERF.tick(dt*1000)})();
+  // low-end: during the fully-clouded start of the intro the overlay hides the canvas, so skip the 3D render
+  if(!(LOW&&introAnim&&performance.now()-introAnim.t0<2400))R.render(S,cam);
+  PERF.tick(dt*1000)})();
 </script></body></html>
