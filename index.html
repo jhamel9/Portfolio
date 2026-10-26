@@ -9,20 +9,34 @@ html,body{height:100%;margin:0;background:#0a0d12;overflow:hidden;font-family:sy
 #wh{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:1;background:#0a0d12;display:block;outline:none}
 #ld{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:#30363b repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 6px,rgba(0,0,0,.14) 6px 12px);color:#e6edf3;transition:opacity .5s ease,visibility .5s ease}
 #ld.done{opacity:0;visibility:hidden;pointer-events:none}
-#ld svg{width:130px;height:130px;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55))}
-#ld .spin{animation:fanspin .7s linear infinite;transform-box:fill-box;transform-origin:50% 50%}
+#ld svg{width:130px;height:130px}
+#ld .spin{animation:fanspin .7s linear infinite;transform-box:fill-box;transform-origin:50% 50%;will-change:transform;backface-visibility:hidden}
 #ld .lt{font:600 14px system-ui,sans-serif;letter-spacing:.3em;text-transform:uppercase;opacity:.85}
 #ld .lb{width:180px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
 #ld .lb i{display:block;height:100%;width:0;background:#33ddff;transition:width .25s ease}
 @keyframes fanspin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#ld .spin{animation:none}}
 </style></head><body>
-<iframe id="wh" src="warehouse.html" title="Jhamel Warehouse" allow="autoplay; fullscreen"></iframe>
+<iframe id="wh" src="about:blank" title="Jhamel Warehouse" allow="autoplay; fullscreen"></iframe>
 <div id="ld"><svg viewBox="-60 -60 120 120"><rect x="-58" y="-58" width="116" height="116" rx="4" fill="#3a4046" stroke="#4a525a" stroke-width="2"/><g fill="#d4d9dc"><circle cx="-51" cy="-51" r="3"/><circle cx="51" cy="-51" r="3"/><circle cx="-51" cy="51" r="3"/><circle cx="51" cy="51" r="3"/></g><circle r="47" fill="#24282c" stroke="#30363b" stroke-width="3"/><g class="spin"><circle r="44" fill="none"/><g id="bl"><rect x="-7" y="-40" width="14" height="30" fill="#8a9298" stroke="#c3cad0" stroke-width="1"/><rect x="-6" y="-43" width="12" height="4" fill="#4a525a"/></g><use href="#bl" transform="rotate(72)"/><use href="#bl" transform="rotate(144)"/><use href="#bl" transform="rotate(216)"/><use href="#bl" transform="rotate(288)"/></g><g fill="none" stroke="#4a525a" stroke-width="1.5"><circle r="14"/><circle r="28"/><circle r="42"/><line x1="-44" y1="0" x2="44" y2="0"/><line x1="0" y1="-44" x2="0" y2="44"/><line x1="-31" y1="-31" x2="31" y2="31"/><line x1="-31" y1="31" x2="31" y2="-31"/></g><circle r="9" fill="#3a4046" stroke="#33ddff" stroke-width="1.5"/><circle r="3" fill="#33ddff"/></svg><div class="lt">Loading warehouse</div><div class="lb"><i id="lbar"></i></div></div>
 <script>
 (function(){
   var ld=document.getElementById('ld'),lbar=document.getElementById('lbar');
   var revealed=false,startT=performance.now(),realP=0,timer=null;
+  // Paint the loading screen for a couple of frames first, then hand the main thread
+  // over to the (same-thread) warehouse iframe. This lets the fan animate smoothly
+  // at the very start instead of being frozen by the initial parse of warehouse.html.
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    setTimeout(function(){
+      var f=document.getElementById('wh');
+      if(f&&/^about:blank/.test(f.src))f.src='warehouse.html';
+    },80);
+  })});
+  // Safety net for very weak devices (<=2 cores or <=2 GB RAM): keep the fan static
+  // so it can never appear to lag during the warehouse startup.
+  if((navigator.hardwareConcurrency||8)<=2||(navigator.deviceMemory||8)<=2){
+    var sp=document.querySelector('#ld .spin');if(sp)sp.style.animation='none';
+  }
   function setBar(p){var q=Math.max(0,Math.min(1,p));lbar.style.width=Math.round(q*100)+'%'}
   timer=setInterval(function(){
     if(revealed)return;
